@@ -9,7 +9,6 @@ router = APIRouter(prefix="/api/missions", tags=["missions"])
 
 @router.post("", response_model=schemas.MissionResponse, status_code=status.HTTP_201_CREATED)
 def create_mission(payload: schemas.MissionCreate, db: Session = Depends(get_db)):
-    # check for no missions
     if payload.cat_id is not None:
         cat = db.query(models.SpyCat).filter(models.SpyCat.id == payload.cat_id).first()
         if not cat:
@@ -59,3 +58,62 @@ def delete_mission(mission_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Cannot delete mission assigned to a cat")
     db.delete(mission)
     db.commit()
+
+@router.patch("/{mission_id}/assign", response_model=schemas.MissionResponse)
+def assign_cat(mission_id: int, payload: schemas.MissionAssign, db: Session = Depends(get_db)):
+    mission = db.query(models.Mission).filter(models.Mission.id == mission_id).first()
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+
+    cat = db.query(models.SpyCat).filter(models.SpyCat.id == payload.cat_id).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Spy cat not found")
+
+    # check if cat has active mission
+    existing = db.query(models.Mission).filter(
+        models.Mission.cat_id == payload.cat_id,
+        models.Mission.is_complete == False,
+        models.Mission.id != mission_id
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Cat already has an active mission")
+
+    mission.cat_id = payload.cat_id
+    db.commit()
+    db.refresh(mission)
+    return mission
+
+@router.patch("/{mission_id}/targets/{target_id}", response_model=schemas.TargetResponse)
+def update_target(
+    mission_id: int,
+    target_id: int,
+    payload: schemas.TargetUpdate,
+    db: Session = Depends(get_db),
+):
+    mission = db.query(models.Mission).filter(models.Mission.id == mission_id).first()
+    if not mission:
+        raise HTTPException(status_code=404, detail="Mission not found")
+
+    target = db.query(models.Target).filter(
+        models.Target.id == target_id,
+        models.Target.mission_id == mission_id,
+    ).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Target not found")
+
+    if payload.notes is not None:
+        if mission.is_complete or target.is_complete:
+            raise HTTPException(status_code=400, detail="Cannot update notes on completed target or mission")
+        target.notes = payload.notes
+
+    if payload.is_complete is not None:
+        target.is_complete = payload.is_complete
+
+        if target.is_complete:
+            all_targets = db.query(models.Target).filter(models.Target.mission_id == mission_id).all()
+            if all(t.is_complete for t in all_targets):
+                mission.is_complete = True
+
+    db.commit()
+    db.refresh(target)
+    return target

@@ -54,3 +54,6 @@ class MissionResponse(BaseModel):
     targets: List[TargetResponse]
     class Config:
         from_attributes = True
+
+class MissionAssign(BaseModel):
+    cat_id: int
