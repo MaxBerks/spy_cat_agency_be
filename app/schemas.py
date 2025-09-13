@@ -4,14 +4,39 @@ import httpx
 import os
 
 # ---------- Cats ----------
-class SpyCatBase(BaseModel):
-    name: str
-    years_of_experience: int = Field(ge=0)
-    breed: str
-    salary: float = Field(gt=0)
+CAT_API_URL = "https://api.thecatapi.com/v1/breeds"
+CAT_API_KEY = os.getenv("CAT_API_KEY", None)
+_VALID_BREEDS_CACHE: Optional[Set[str]] = None
+
+def fetch_breeds() -> Optional[Set[str]]:
+    headers = {"x-api-key": CAT_API_KEY} if CAT_API_KEY else {}
+    try: 
+        r = httpx.get(CAT_API_URL, headers=headers, timeout=8.0)
+        if r.status_code == 200:
+            return {b["name"].lower() for b in r.json()}
+        return None
+    except Exception:
+        return None
 
 class SpyCatCreate(SpyCatBase):
-    pass  #TODO breed validation via TheCatAPI
+    @field_validator("breed")
+    @classmethod
+    def validate_breed(cls, v: str):
+        global _VALID_BREEDS_CACHE
+        
+        if _VALID_BREEDS_CACHE is None:
+            _VALID_BREEDS_CACHE = fetch_breeds()
+        
+        if not _VALID_BREEDS_CACHE:
+            return v
+        
+        if v.lower() not in _VALID_BREEDS_CACHE:
+            raise ValueError(f"Invalid breed: {v}")
+        return v
+
+class SpyCatUpdate(BaseModel):
+    salary: float = Field(gt=0)
+
 
 class SpyCatUpdate(BaseModel):
     salary: float = Field(gt=0)
@@ -59,45 +84,3 @@ class MissionResponse(BaseModel):
 
 class MissionAssign(BaseModel):
     cat_id: int
-
-
-
-CAT_API_URL = "https://api.thecatapi.com/v1/breeds"
-CAT_API_KEY = os.getenv("CAT_API_KEY", None)
-_VALID_BREEDS_CACHE: Optional[Set[str]] = None
-
-def fetch_breeds() -> Optional[Set[str]]:
-    headers = {"x-api-key": CAT_API_KEY} if CAT_API_KEY else {}
-    try: 
-        r = httpx.get(CAT_API_URL, headers=headers, timeout=8.0)
-        if r.status_code == 200:
-            return {b["name"].lower() for b in r.json()}
-        return None  # non-200 → fallback allow
-    except Exception:
-        return None  # network/timeout → fallback allow
-
-class SpyCatBase(BaseModel):
-    name: str
-    years_of_experience: int = Field(ge=0)
-    breed: str
-    salary: float = Field(gt=0)
-
-class SpyCatCreate(SpyCatBase):
-    @field_validator("breed")
-    @classmethod
-    def validate_breed(cls, v: str):
-        global _VALID_BREEDS_CACHE
-        # lazy cache
-        if _VALID_BREEDS_CACHE is None:
-            _VALID_BREEDS_CACHE = fetch_breeds()
-        # fallback allow if API/cache unavailable
-        if not _VALID_BREEDS_CACHE:
-            return v
-        # only reject if API known and breed is not in it
-        if v.lower() not in _VALID_BREEDS_CACHE:
-            raise ValueError(f"Invalid breed: {v}")
-        return v
-
-class SpyCatUpdate(BaseModel):
-    salary: float = Field(gt=0)
-
