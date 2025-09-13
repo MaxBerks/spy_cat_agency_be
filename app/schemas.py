@@ -5,7 +5,6 @@ import os
 
 # ---------- Cats ----------
 CAT_API_URL = "https://api.thecatapi.com/v1/breeds"
-CAT_API_KEY = os.getenv("CAT_API_KEY", None)
 _VALID_BREEDS_CACHE: Optional[Set[str]] = None
 
 class SpyCatBase(BaseModel):
@@ -14,10 +13,9 @@ class SpyCatBase(BaseModel):
     breed: str
     salary: float = Field(gt=0)
 
-def fetch_breeds() -> Optional[Set[str]]:
-    headers = {"x-api-key": CAT_API_KEY} if CAT_API_KEY else {}
-    try: 
-        r = httpx.get(CAT_API_URL, headers=headers, timeout=8.0)
+def fetch_breeds() -> Optional[set[str]]:
+    try:
+        r = httpx.get(CAT_API_URL, timeout=8.0)
         if r.status_code == 200:
             return {b["name"].lower() for b in r.json()}
         return None
