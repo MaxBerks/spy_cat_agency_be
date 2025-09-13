@@ -8,6 +8,12 @@ CAT_API_URL = "https://api.thecatapi.com/v1/breeds"
 CAT_API_KEY = os.getenv("CAT_API_KEY", None)
 _VALID_BREEDS_CACHE: Optional[Set[str]] = None
 
+class SpyCatBase(BaseModel):
+    name: str
+    years_of_experience: int = Field(ge=0)
+    breed: str
+    salary: float = Field(gt=0)
+
 def fetch_breeds() -> Optional[Set[str]]:
     headers = {"x-api-key": CAT_API_KEY} if CAT_API_KEY else {}
     try: 
