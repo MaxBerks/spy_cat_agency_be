@@ -25,3 +25,21 @@ def get_cat(cat_id: int, db: Session = Depends(get_db)):
     if not cat:
         raise HTTPException(status_code=404, detail="Spy cat not found")
     return cat
+
+@router.patch("/{cat_id}", response_model=schemas.SpyCatResponse)
+def update_cat_salary(cat_id: int, payload: schemas.SpyCatUpdate, db: Session = Depends(get_db)):
+    cat = db.query(models.SpyCat).filter(models.SpyCat.id == cat_id).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Spy cat not found")
+    cat.salary = payload.salary
+    db.commit()
+    db.refresh(cat)
+    return cat
+
+@router.delete("/{cat_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_cat(cat_id: int, db: Session = Depends(get_db)):
+    cat = db.query(models.SpyCat).filter(models.SpyCat.id == cat_id).first()
+    if not cat:
+        raise HTTPException(status_code=404, detail="Spy cat not found")
+    db.delete(cat)
+    db.commit()
