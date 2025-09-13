@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from app.db import init_db
+from app.routers import cats
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Spy Cat Agency API")
 
@@ -15,6 +17,8 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     init_db()
+
+app.include_router(cats.router)
 
 @app.get("/")
 def root():
